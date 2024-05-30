@@ -1,0 +1,19 @@
+{
+  "name": "bdo-player-lookup",
+  "version": "1.0.0",
+  "description": "bdo player lookup discord bot",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Michukpk/bdo-player-lookup.git"
+  },
+  "author": "michukpk",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Michukpk/bdo-player-lookup/issues"
+  },
+  "homepage": "https://github.com/Michukpk/bdo-player-lookup#readme"
+}
