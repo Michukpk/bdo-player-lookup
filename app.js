@@ -1,57 +1,94 @@
 const http = require('http');
-const discord = require("discord.js");
+const fs = require('node:fs');
+const path = require('node:path');
+const { Client, Collection, Events, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const puppeteer = require('puppeteer');
-const client = new discord.Client();
 const dotenv = require('dotenv');
-const { MessageEmbed } = require('discord.js');
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+		GatewayIntentBits.GuildMessages,
+		GatewayIntentBits.MessageContent,
+		GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.MessageContent,
+  ]
+});
 
 dotenv.config();
 
-/*
-function createEmbed(info)
-{
-    const exampleEmbed = new MessageEmbed()
-            .setColor('#0099ff')
-            .setTitle('Family name: ' + info.famName)
-            .setDescription('Guild: ' + info.guild)
-            .setThumbnail('https://i.imgur.com/AfFp7pu.png')
-            .addFields(
-                { name: 'Regular field title', value: 'Some value here' },
-                { name: '\u200B', value: '\u200B' },
-                { name: 'Inline field title', value: 'Some value here', inline: true },
-                { name: 'Inline field title', value: 'Some value here', inline: true },
-            )
-            .addField('Inline field title', 'Some value here', true)
-            .setImage('https://cdn.discordapp.com/attachments/521372812087263255/874839051780378694/unknown.png')
-            .setTimestamp()
-    return exampleEmbed;
-}
-*/
+/* client.commands = new Collection();
+const foldersPath = path.join(__dirname, 'commands');
+const commandFolders = fs.readdirSync(foldersPath);
+
+for (const folder of commandFolders) {
+	const commandsPath = path.join(foldersPath, folder);
+	const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+	for (const file of commandFiles) {
+		const filePath = path.join(commandsPath, file);
+		const command = require(filePath);
+		if ('data' in command && 'execute' in command) {
+			client.commands.set(command.data.name, command);
+		} else {
+			console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+		}
+	}
+} */
+
+/* client.on(Events.InteractionCreate, async interaction => {
+	if (!interaction.isChatInputCommand()) return;
+	const command = interaction.client.commands.get(interaction.commandName);
+
+	if (!command) {
+		console.error(`No command matching ${interaction.commandName} was found.`);
+		return;
+	}
+
+	try {
+		await command.execute(interaction);
+	} catch (error) {
+		console.error(error);
+		if (interaction.replied || interaction.deferred) {
+			await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
+		} else {
+			await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+		}
+	}
+}); */
+
 function trimEnding(string){
   return string.split('\n')[0];
 }
 
-async function chooseAccount(url) {
-  const browser = await puppeteer.launch();
+async function chooseAccount(url, msgLink) {
+  const browser = await puppeteer.launch({
+    "headless": true
+  });
   const page = await browser.newPage();
-  await page.goto(url);
+  console.log(url);
+  try {
+    await page.goto(url);
+  } catch (error) {
+    msgLink.channel.send('Could not connect to the website');
+    return;
+  }
+  
 
   //getting url to click
-  const aHandle = await page.$('.title > a');
-  //console.log(aHandle);
-  const accLink = await aHandle.evaluate(element => element.getAttribute('href'));
-  //console.log(accLink);
-  //const elem = await page.$$eval('div.title > a', href => href.getAttribute('href'));
-  // //*[@id="wrap"]/div/div[3]/article/div/div/div[3]/ul/li/div[2]/a
-  //const accLink = await elem.$eval('a', element => element.getAttribute('href'));
-  //console.log('link: ' + elem);
-
-  await page.goto(accLink);
-
+  try {
+    const aHandle = await page.$('.title > a');
+    var accLink = await aHandle.evaluate(element => element.getAttribute('href'));
+    console.log({accLink});
+    await page.goto(accLink);
+  } catch (error) {
+    console.log('Couldnt get account link: ' + error);
+    return;
+  }
+  
+  
   //getting family name
-  const [elem1] = await page.$x('//*[@id="wrap"]/div/div/article[1]/div/div/div/div[1]/div/div/div/p');
-  const famName = await elem1.getProperty('textContent');
-  const famNameTxt = await famName.jsonValue();
+  const famName = await page.evaluate(() => Array.from(document.querySelectorAll('p.nick'), element => element.textContent));
+  //console.log(famName);
+  //console.log(famNameTxt);
 
   //getting guild name
   const spanContent = await page.evaluate(() => Array.from(document.querySelectorAll('span.desc.guild'), element => element.textContent));
@@ -60,9 +97,11 @@ async function chooseAccount(url) {
   //getting an array of character names and classes
   const charNames = await page.evaluate(() => Array.from(document.querySelectorAll('p.character_name'), element => element.textContent));
   const classes = await page.evaluate(() => Array.from(document.querySelectorAll('span.character_symbol'), element => element.textContent));
+
   //trim all the spaces and newlines
   var charNamesTrimmed = charNames.map(string => string.trim());
   const classesTrimmed = classes.map(string => string.trim());
+
   //remove "Main character" ending
   for (let index = 0; index < charNamesTrimmed.length; index++) {
     charNamesTrimmed[index] = trimEnding(charNamesTrimmed[index])
@@ -70,15 +109,14 @@ async function chooseAccount(url) {
 
   // getting char levels
   const lvl = await page.evaluate(() => Array.from(document.querySelectorAll('.character_info > span:nth-child(2) > em'), element => element.textContent));
-  //const lvl = await emHandle.evaluate(element => element.textContent);
-  console.log(lvl);
+  //console.log(lvl);
 
-  console.log(classesTrimmed)
-  console.log(charNamesTrimmed);
-  console.log({famNameTxt});
+  //console.log({classesTrimmed})
+  //console.log({charNamesTrimmed});
+  console.log({famName});
   //console.log({guildTxt})
   var obj = {
-    famName: famNameTxt,
+    famName: famName,
     guild: guildTxt,
     charNames: charNamesTrimmed,
     classes: classesTrimmed,
@@ -90,11 +128,11 @@ async function chooseAccount(url) {
 }
 
 
-client.on("ready", () => {
-  console.log(`Logged in as ${client.user.tag}!`);
-})
+client.once(Events.ClientReady, readyClient => {
+	console.log(`Ready! Logged in as ${readyClient.user.tag}`);
+});
 
-client.on("message", msg => {
+client.on("messageCreate", msg => {
   if (msg.content.substring(0, 1) === '!')
   {
     var slicedCom = msg.content.slice(1, msg.content.length);
@@ -102,41 +140,84 @@ client.on("message", msg => {
 
     if(args[0] === "fn")
     {
-        chooseAccount('https://www.naeu.playblackdesert.com/en-US/Adventure?region=EU&searchType=2&searchKeyword='+args[1]).then((info) => {
-          //console.log(info.charNames)
-          //console.log(info.classes)
-          const embed = new discord.MessageEmbed()
-            .setTitle("Family name: "+info.famName)
-            .setAuthor("Guild: "+info.guild)
-            .setColor(0x00AE86)
-            .setFooter("Made by Michu")
-            .setTimestamp()
-            .setURL(info.link)
-            for( let i = 0; i < info.charNames.length; i++) {
-            embed.addFields({ 
-                name: info.charNames[i],
-                value: info.levels[i] + " - " + info.classes[i],
-                inline: true
-              })
+        chooseAccount('https://www.naeu.playblackdesert.com/en-US/Adventure?region=EU&searchType=2&searchKeyword='+args[1], msg).then((info) => {
+          //console.log({info});
+          if(info == null){
+            msg.channel.send('Could not find the player2');
+            return;
+          } 
+          const embeds = [];
+          let counter = 0;
+          for( let i = 0; i < info.charNames.length; i++) {
+            if(!embeds[Math.floor(counter / 25)]) {
+
+              embeds.push(new EmbedBuilder()
+                .setTitle("Family name: "+info.famName)
+                .setAuthor({
+                  name: "Guild: "+info.guild
+                })
+                .setColor(0x00AE86)
+                .setFooter({ 
+                  text: "Made by Michu"
+                })
+                .setTimestamp()
+                .setURL(info.link)
+              )
             }
-            
-            msg.channel.send( {embed} );
+                embeds[Math.floor(counter / 25)].addFields({ 
+                    name: info.charNames[i],
+                    value: info.levels[i] + " - " + info.classes[i],
+                    inline: true
+                  })
+                counter++;
+            }
+          
+          embeds.forEach( e => {
+            //console.log({embeds});
+            msg.channel.send({ embeds: [e]});
+          })
+
         });
         
     }
     else if(args[0] === "ch")
     {
-      chooseAccount('https://www.naeu.playblackdesert.com/en-US/Adventure?region=EU&searchType=1&searchKeyword='+args[1]).then((info) => {
+      chooseAccount('https://www.naeu.playblackdesert.com/en-US/Adventure?region=EU&searchType=1&searchKeyword='+args[1], msg).then((info) => {
+        //console.log({info});
+        if(info == null){
+          msg.channel.send('Could not find the player');
+          return;
+        } 
+        const embeds = [];
+        let counter = 0;
+        for( let i = 0; i < info.charNames.length; i++) {
+          if(!embeds[Math.floor(counter / 25)]) {
 
-          const embed = new discord.MessageEmbed()
-            .setTitle("Family name: "+info.famName)
-            .setAuthor("Guild: "+info.guild)
-            .setColor(0x00AE86)
-            .setFooter("Made by Michu")
-            .setTimestamp()
-            .setURL(info.link)
-            
-            msg.channel.send( {embed} );
+            embeds.push(new EmbedBuilder()
+              .setTitle("Family name: "+info.famName)
+              .setAuthor({
+                name: "Guild: "+info.guild
+              })
+              .setColor(0x00AE86)
+              .setFooter({ 
+                text: "Made by Michu"
+              })
+              .setTimestamp()
+              .setURL(info.link)
+            )
+          }
+              embeds[Math.floor(counter / 25)].addFields({ 
+                  name: info.charNames[i],
+                  value: info.levels[i] + " - " + info.classes[i],
+                  inline: true
+                })
+              counter++;
+        }
+        
+            embeds.forEach( e => {
+              //console.log({embeds});
+              msg.channel.send({ embeds: [e]}); //coś nie działa z wysyłaniem embeda
+            })
         });
     }
     
