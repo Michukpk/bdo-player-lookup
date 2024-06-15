@@ -25,7 +25,7 @@ async function chooseAccount(url, msgLink) {
     "headless": true
   });
   const page = await browser.newPage();
-  console.log(url);
+  //console.log(url);
   try {
     await page.goto(url);
   } catch (error) {
@@ -38,7 +38,7 @@ async function chooseAccount(url, msgLink) {
   try {
     const aHandle = await page.$('.title > a');
     var accLink = await aHandle.evaluate(element => element.getAttribute('href'));
-    console.log({accLink});
+    //console.log({accLink});
     await page.goto(accLink);
   } catch (error) {
     console.log('Couldnt get account link: ' + error);
@@ -71,7 +71,7 @@ async function chooseAccount(url, msgLink) {
   // getting char levels
   const lvl = await page.evaluate(() => Array.from(document.querySelectorAll('.character_info > span:nth-child(2) > em'), element => element.textContent));
   //console.log(lvl);
-
+  browser.close();
   //console.log({classesTrimmed})
   //console.log({charNamesTrimmed});
   console.log({famName});
